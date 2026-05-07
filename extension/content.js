@@ -233,10 +233,10 @@ function removeCountdown() {
   document.getElementById('voicevox-countdown')?.remove();
 }
 
-// 先読みキャッシュへの積み込み（currentIndex から prefetchCount 段落先まで）
-function ensurePrefetched(currentIndex) {
-  const end = Math.min(currentIndex + state.prefetchCount + 1, state.paragraphs.length);
-  for (let i = currentIndex; i < end; i++) {
+// 先読みキャッシュへの積み込み（fromIndex から prefetchCount 段落分）
+function ensurePrefetched(fromIndex) {
+  const end = Math.min(fromIndex + state.prefetchCount, state.paragraphs.length);
+  for (let i = fromIndex; i < end; i++) {
     if (!state.audioCache.has(i)) {
       const p = synthesize(state.paragraphs[i], state.speakerId, state.speedScale);
       p.catch(() => {}); // 未処理のrejectionを防ぐ
@@ -298,6 +298,9 @@ async function setupParagraphListeners() {
   state.paragraphs = texts;
   state.elements = elements;
 
+  // ページ読み込み時に最初の段落を先行合成（再生開始時の待ち時間を短縮）
+  ensurePrefetched(0);
+
   elements.forEach((el, i) => {
     el.classList.add('voicevox-clickable');
     el.addEventListener('click', () => startReadingFrom(i));
@@ -319,8 +322,12 @@ async function readLoop(startIndex, generation) {
     highlightElement(index);
     notifyStatus();
 
-    // 現在段落 + 先読み分をキャッシュ登録し、現在段落の合成を待つ
-    ensurePrefetched(index);
+    // 現在段落の合成が未開始なら開始（競合を避けるため現在段落のみ）
+    if (!state.audioCache.has(index)) {
+      const p = synthesize(state.paragraphs[index], state.speakerId, state.speedScale);
+      p.catch(() => {});
+      state.audioCache.set(index, p);
+    }
     let audioBase64;
     try {
       audioBase64 = await state.audioCache.get(index);
@@ -337,6 +344,9 @@ async function readLoop(startIndex, generation) {
     // 一時停止中なら合成後・再生前に待機
     await waitWhilePaused();
     if (!state.isReading) break;
+
+    // 再生開始と同時に次の段落の先読みを開始（再生中に並行して合成）
+    ensurePrefetched(index + 1);
 
     // 再生
     const audio = new Audio('data:audio/wav;base64,' + audioBase64);
