@@ -3,6 +3,7 @@ let speedScale = 1.0;
 let autoNext = false;
 let autoNextDelay = 5;
 let voicevoxHost = 'localhost:50021';
+let prefetchCount = 2;
 let pollingInterval = null;
 let isOnSupportedPage = false;
 
@@ -13,6 +14,7 @@ const KEYS = {
   autoNext:     'voicevox_autoNext',
   autoNextDelay:'voicevox_autoNextDelay',
   voicevoxHost: 'voicevox_host',
+  prefetchCount:'voicevox_prefetchCount',
 };
 
 function lsGet(key, defaultValue) {
@@ -180,7 +182,7 @@ function stopPolling() {
 // --- ボタン・コントロールイベント ---
 document.getElementById('btn-play').addEventListener('click', async () => {
   try {
-    const result = await sendToContent({ action: 'play', speakerId, speedScale, autoNext, autoNextDelay, voicevoxHost });
+    const result = await sendToContent({ action: 'play', speakerId, speedScale, autoNext, autoNextDelay, voicevoxHost, prefetchCount });
     if (!result?.success) updateUI(null, result?.error || '読み上げを開始できませんでした');
   } catch (err) {
     updateUI(null, `コンテンツスクリプトへの接続に失敗しました: ${err.message}`);
@@ -223,6 +225,11 @@ document.getElementById('auto-next-delay').addEventListener('change', e => {
   lsSet('autoNextDelay', autoNextDelay);
 });
 
+document.getElementById('prefetch-count').addEventListener('change', e => {
+  prefetchCount = Number(e.target.value);
+  lsSet('prefetchCount', prefetchCount);
+});
+
 // ホスト変更（Enterキーまたは「接続」ボタン）
 function applyHost() {
   const raw = document.getElementById('voicevox-host').value.trim();
@@ -242,6 +249,7 @@ document.getElementById('btn-reconnect').addEventListener('click', applyHost);
   autoNext      = lsGet('autoNext',      false);
   autoNextDelay = lsGet('autoNextDelay', 5);
   voicevoxHost  = lsGet('voicevoxHost',  'localhost:50021');
+  prefetchCount = lsGet('prefetchCount', 2);
 
   document.getElementById('speed-range').value          = speedScale;
   document.getElementById('speed-value').textContent    = `${speedScale.toFixed(1)}x`;
@@ -249,6 +257,7 @@ document.getElementById('btn-reconnect').addEventListener('click', applyHost);
   document.getElementById('delay-row').style.display    = autoNext ? 'flex' : 'none';
   document.getElementById('auto-next-delay').value      = autoNextDelay;
   document.getElementById('voicevox-host').value        = voicevoxHost;
+  document.getElementById('prefetch-count').value       = prefetchCount;
 })();
 
 (async () => {
