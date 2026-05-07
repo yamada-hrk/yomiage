@@ -32,6 +32,8 @@ const state = {
   autoNext: false,
   autoNextDelay: 5,
   voicevoxHost: 'localhost:50021',
+  prefetchCount: 2,
+  audioCache: new Map(), // index -> Promise<base64>
 };
 
 // ループ世代カウンター: 古いループが新ループと競合しないよう管理
@@ -231,10 +233,23 @@ function removeCountdown() {
   document.getElementById('voicevox-countdown')?.remove();
 }
 
+// 先読みキャッシュへの積み込み（fromIndex から prefetchCount 段落分）
+function ensurePrefetched(fromIndex) {
+  const end = Math.min(fromIndex + state.prefetchCount, state.paragraphs.length);
+  for (let i = fromIndex; i < end; i++) {
+    if (!state.audioCache.has(i)) {
+      const p = synthesize(state.paragraphs[i], state.speakerId, state.speedScale);
+      p.catch(() => {}); // 未処理のrejectionを防ぐ
+      state.audioCache.set(i, p);
+    }
+  }
+}
+
 // 読み上げを強制停止してループを終了させる
 function stopReading() {
   state.isReading = false;
   state.isPaused = false;
+  state.audioCache.clear();
   if (state.currentAudio) {
     state.currentAudio.pause();
     state.currentAudio = null;
@@ -268,18 +283,23 @@ async function setupParagraphListeners() {
     'voicevox_autoNextDelay',
     'voicevox_host',
     'voicevox_autoStart',
+    'voicevox_prefetchCount',
   ]);
-  if (saved.voicevox_speakerId     !== undefined) state.speakerId    = Number(saved.voicevox_speakerId);
-  if (saved.voicevox_speedScale    !== undefined) state.speedScale   = Number(saved.voicevox_speedScale);
+  if (saved.voicevox_speakerId     !== undefined) state.speakerId     = Number(saved.voicevox_speakerId);
+  if (saved.voicevox_speedScale    !== undefined) state.speedScale    = Number(saved.voicevox_speedScale);
   if (saved.voicevox_autoNext      !== undefined) state.autoNext      = saved.voicevox_autoNext;
   if (saved.voicevox_autoNextDelay !== undefined) state.autoNextDelay = Number(saved.voicevox_autoNextDelay);
   if (saved.voicevox_host          !== undefined) state.voicevoxHost  = saved.voicevox_host;
+  if (saved.voicevox_prefetchCount !== undefined) state.prefetchCount = Number(saved.voicevox_prefetchCount);
 
   const { elements, texts } = extractNovelContent();
   if (texts.length === 0) return;
 
   state.paragraphs = texts;
   state.elements = elements;
+
+  // ページ読み込み時に最初の段落を先行合成（再生開始時の待ち時間を短縮）
+  ensurePrefetched(0);
 
   elements.forEach((el, i) => {
     el.classList.add('voicevox-clickable');
@@ -302,21 +322,31 @@ async function readLoop(startIndex, generation) {
     highlightElement(index);
     notifyStatus();
 
-    // 合成
+    // 現在段落の合成が未開始なら開始（競合を避けるため現在段落のみ）
+    if (!state.audioCache.has(index)) {
+      const p = synthesize(state.paragraphs[index], state.speakerId, state.speedScale);
+      p.catch(() => {});
+      state.audioCache.set(index, p);
+    }
     let audioBase64;
     try {
-      audioBase64 = await synthesize(state.paragraphs[index], state.speakerId, state.speedScale);
+      audioBase64 = await state.audioCache.get(index);
     } catch (err) {
+      state.audioCache.delete(index);
       notifyStatus({ error: `合成エラー: ${err.message}` });
       state.isReading = false;
       break;
     }
+    state.audioCache.delete(index);
 
     if (!state.isReading) break;
 
     // 一時停止中なら合成後・再生前に待機
     await waitWhilePaused();
     if (!state.isReading) break;
+
+    // 再生開始と同時に次の段落の先読みを開始（再生中に並行して合成）
+    ensurePrefetched(index + 1);
 
     // 再生
     const audio = new Audio('data:audio/wav;base64,' + audioBase64);
@@ -391,11 +421,12 @@ document.addEventListener('keydown', e => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'play') {
     // 設定を常に最新値で更新
-    if (message.speakerId !== undefined) state.speakerId = message.speakerId;
-    if (message.speedScale !== undefined) state.speedScale = message.speedScale;
+    if (message.speakerId     !== undefined) state.speakerId     = message.speakerId;
+    if (message.speedScale    !== undefined) state.speedScale    = message.speedScale;
     if (message.autoNext      !== undefined) state.autoNext      = message.autoNext;
     if (message.autoNextDelay !== undefined) state.autoNextDelay = message.autoNextDelay;
     if (message.voicevoxHost  !== undefined) state.voicevoxHost  = message.voicevoxHost;
+    if (message.prefetchCount !== undefined) state.prefetchCount = message.prefetchCount;
 
     if (state.isPaused) {
       // 一時停止から再開
