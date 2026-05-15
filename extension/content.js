@@ -134,7 +134,11 @@ function findNextPageUrl() {
   const linkNext = document.querySelector('link[rel="next"]');
   if (linkNext?.href) return linkNext.href;
 
-  // なろう: .novel_bn 内の「次へ」リンク
+  // なろう（新: .c-pager__item--next）
+  const narouNext = document.querySelector('.c-pager__item--next');
+  if (narouNext?.href) return narouNext.href;
+
+  // なろう（旧: .novel_bn 内の「次へ」リンク）
   for (const nav of document.querySelectorAll('.novel_bn')) {
     const links = Array.from(nav.querySelectorAll('a'));
     const next = links.find(a => /次/.test(a.textContent));
