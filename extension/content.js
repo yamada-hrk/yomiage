@@ -48,8 +48,8 @@ function getTextWithoutRuby(el) {
 
 // 小説テキストの抽出
 function extractNovelContent() {
-  // なろう
-  const narouBody = document.querySelector('#novel_honbun');
+  // なろう（旧: #novel_honbun / 新: .js-novel-text）
+  const narouBody = document.querySelector('#novel_honbun') || document.querySelector('.js-novel-text');
   if (narouBody) {
     const all = Array.from(narouBody.querySelectorAll('p'));
     const filtered = all.map(el => ({ el, text: getTextWithoutRuby(el) }))
@@ -134,7 +134,11 @@ function findNextPageUrl() {
   const linkNext = document.querySelector('link[rel="next"]');
   if (linkNext?.href) return linkNext.href;
 
-  // なろう: .novel_bn 内の「次へ」リンク
+  // なろう（新: .c-pager__item--next）
+  const narouNext = document.querySelector('.c-pager__item--next');
+  if (narouNext?.href) return narouNext.href;
+
+  // なろう（旧: .novel_bn 内の「次へ」リンク）
   for (const nav of document.querySelectorAll('.novel_bn')) {
     const links = Array.from(nav.querySelectorAll('a'));
     const next = links.find(a => /次/.test(a.textContent));
