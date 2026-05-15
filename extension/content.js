@@ -48,8 +48,8 @@ function getTextWithoutRuby(el) {
 
 // 小説テキストの抽出
 function extractNovelContent() {
-  // なろう
-  const narouBody = document.querySelector('#novel_honbun');
+  // なろう（旧: #novel_honbun / 新: .js-novel-text）
+  const narouBody = document.querySelector('#novel_honbun') || document.querySelector('.js-novel-text');
   if (narouBody) {
     const all = Array.from(narouBody.querySelectorAll('p'));
     const filtered = all.map(el => ({ el, text: getTextWithoutRuby(el) }))
