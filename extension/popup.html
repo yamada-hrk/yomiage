@@ -266,6 +266,27 @@
     }
 
     .btn-sm:hover { background: #1a4a8a; }
+
+    .host-history {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .host-history-btn {
+      padding: 2px 8px;
+      background: #0f3460;
+      color: #aaa;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: monospace;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .host-history-btn:hover { background: #1a4a8a; color: #e0e0e0; }
   </style>
 </head>
 <body>
@@ -278,10 +299,10 @@
     <div>
       <div class="section-label">VOICEVOXホスト</div>
       <div class="host-row">
-        <input type="text" id="voicevox-host" placeholder="localhost:50021" list="host-history-list">
-        <datalist id="host-history-list"></datalist>
+        <input type="text" id="voicevox-host" placeholder="localhost:50021">
         <button class="btn-sm" id="btn-reconnect">接続</button>
       </div>
+      <div id="host-history-buttons" class="host-history"></div>
     </div>
 
     <!-- VOICEVOX接続状態 -->

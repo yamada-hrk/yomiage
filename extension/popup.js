@@ -38,12 +38,17 @@ function addToHostHistory(host) {
 }
 
 function renderHostHistory() {
-  const datalist = document.getElementById('host-history-list');
-  datalist.innerHTML = '';
+  const container = document.getElementById('host-history-buttons');
+  container.innerHTML = '';
   lsGet('hostHistory', []).forEach(h => {
-    const opt = document.createElement('option');
-    opt.value = h;
-    datalist.appendChild(opt);
+    const btn = document.createElement('button');
+    btn.className = 'host-history-btn';
+    btn.textContent = h;
+    btn.addEventListener('click', () => {
+      document.getElementById('voicevox-host').value = h;
+      applyHost();
+    });
+    container.appendChild(btn);
   });
 }
 
