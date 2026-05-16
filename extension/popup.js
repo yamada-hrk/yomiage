@@ -15,6 +15,7 @@ const KEYS = {
   autoNextDelay:'voicevox_autoNextDelay',
   voicevoxHost: 'voicevox_host',
   prefetchCount:'voicevox_prefetchCount',
+  hostHistory:  'voicevox_hostHistory',
 };
 
 function lsGet(key, defaultValue) {
@@ -27,6 +28,23 @@ function lsSet(key, value) {
   localStorage.setItem(KEYS[key], JSON.stringify(value));
   // コンテンツスクリプトが読めるよう chrome.storage.local にも反映
   chrome.storage.local.set({ [KEYS[key]]: value });
+}
+
+// --- ホスト接続履歴 ---
+function addToHostHistory(host) {
+  const history = [host, ...lsGet('hostHistory', []).filter(h => h !== host)].slice(0, 5);
+  lsSet('hostHistory', history);
+  renderHostHistory();
+}
+
+function renderHostHistory() {
+  const datalist = document.getElementById('host-history-list');
+  datalist.innerHTML = '';
+  lsGet('hostHistory', []).forEach(h => {
+    const opt = document.createElement('option');
+    opt.value = h;
+    datalist.appendChild(opt);
+  });
 }
 
 // --- メッセージ送信 ---
@@ -70,6 +88,7 @@ async function checkConnection() {
     if (result.connected) {
       dot.className = 'status-dot connected';
       text.textContent = `VOICEVOX v${result.version} 接続済み`;
+      addToHostHistory(voicevoxHost);
       await loadSpeakers();
       return true;
     }
@@ -258,6 +277,7 @@ document.getElementById('btn-reconnect').addEventListener('click', applyHost);
   document.getElementById('auto-next-delay').value      = autoNextDelay;
   document.getElementById('voicevox-host').value        = voicevoxHost;
   document.getElementById('prefetch-count').value       = prefetchCount;
+  renderHostHistory();
 })();
 
 (async () => {
